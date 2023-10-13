@@ -1,0 +1,59 @@
+library(tidyverse)
+library(nflfastR)
+
+nflpbp <- load_pbp(2020:2023)
+ceedee <-
+  nflpbp |>
+  filter(receiver_player_name == "C.Lamb")
+
+ceedee_ADOT <-
+  ceedee |>
+  group_by(season) |>
+  filter(play_type == "pass", !is.na(air_yards)) |>
+  summarize(n = n(), adot = mean(air_yards),games = n_distinct(game_date),yardspg = sum(yards_gained)/games)|>
+  arrange(season)
+
+library(ggplot2)
+
+df <- tibble(ceedee_ADOT)
+
+scaling_factor <- max(df$yardspg) / max(df$adot)
+
+# Determine the range for both y-axes
+y_range <-
+  range(c(df$yardspg, df$adot))
+
+bar_chart <- ggplot(df, aes(x = season, y = yardspg)) +
+  geom_bar(stat = "identity", fill = "skyblue", alpha = 0.7) +
+  
+  geom_line(aes(y = adot * (diff(y_range) / max(adot))), color = "red") +
+  
+  # Add y-axes for both the bar chart and line graph
+  scale_y_continuous(name = "Total Yards", limits = y_range) +
+  scale_y_continuous(
+    name = "Yards Per Game",
+    sec.axis = sec_axis(
+      trans = ~ . * (max(df$adot) / diff(y_range)),
+      name = "ADOT",
+      breaks = seq(0, max(df$adot), length.out = 6),
+      labels = scales::number_format(scale = 1)
+    )
+  ) +
+  
+  # Add labels to the bars
+  geom_text(aes(y = yardspg, label = round(yardspg, 2)), vjust = 20, color = "black") +
+  
+  # Customize labels and title
+  labs(title = "CeeDee Lamb, YPG + ADOT, 2020-2023",
+       x = "Season",
+       y = "Yards Per Game") +
+  
+  # Add labels to the line graph points
+  geom_text(aes(y = adot, label = round(adot, 2)), vjust = -26, color = "black") +
+  
+  # Customize theme (optional)
+  theme_minimal()
+
+# Print the chart
+print(bar_chart)
+    
